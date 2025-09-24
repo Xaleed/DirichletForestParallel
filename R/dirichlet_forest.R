@@ -231,14 +231,30 @@ predict_distributed_forest <- function(distributed_forest, X_new) {
     worker_predictions <- parallel::mclapply(seq_len(distributed_forest$n_cores), function(i) {
       worker_forest <- distributed_forest$worker_forests[[i]]
       if (worker_forest$n_trees > 0) {
-        PredictDirichletForest(worker_forest, X_new)
+        # Force proper return structure
+        pred_result <- PredictDirichletForest(worker_forest, X_new)
+        # Ensure it's a proper list structure
+        if (is.list(pred_result) && 
+            !is.null(pred_result$alpha_predictions) && 
+            !is.null(pred_result$mean_predictions)) {
+          return(pred_result)
+        } else {
+          return(NULL)
+        }
       } else {
-        NULL
+        return(NULL)
       }
-    }, mc.cores = distributed_forest$n_cores)
+    }, mc.cores = distributed_forest$n_cores, mc.preschedule = FALSE)
     
-    # Filter out null results
-    valid_predictions <- worker_predictions[!sapply(worker_predictions, is.null)]
+    # Filter out null results and validate structure
+    valid_predictions <- list()
+    for (i in seq_along(worker_predictions)) {
+      pred <- worker_predictions[[i]]
+      if (!is.null(pred) && is.list(pred) && 
+          !is.null(pred$alpha_predictions) && !is.null(pred$mean_predictions)) {
+        valid_predictions <- append(valid_predictions, list(pred))
+      }
+    }
     
   } else if (distributed_forest$type == "cluster") {
     # Cluster-based: send prediction job to each worker
@@ -255,17 +271,27 @@ predict_distributed_forest <- function(distributed_forest, X_new) {
       if (exists("worker_forest", envir = .GlobalEnv)) {
         forest <- get("worker_forest", envir = .GlobalEnv)
         if (forest$n_trees > 0) {
-          PredictDirichletForest(forest, X_new)
-        } else {
-          NULL
+          pred_result <- PredictDirichletForest(forest, X_new)
+          # Ensure proper structure
+          if (is.list(pred_result) && 
+              !is.null(pred_result$alpha_predictions) && 
+              !is.null(pred_result$mean_predictions)) {
+            return(pred_result)
+          }
         }
-      } else {
-        NULL
       }
+      return(NULL)
     })
     
-    # Filter out null results
-    valid_predictions <- worker_predictions[!sapply(worker_predictions, is.null)]
+    # Filter out null results and validate structure
+    valid_predictions <- list()
+    for (i in seq_along(worker_predictions)) {
+      pred <- worker_predictions[[i]]
+      if (!is.null(pred) && is.list(pred) && 
+          !is.null(pred$alpha_predictions) && !is.null(pred$mean_predictions)) {
+        valid_predictions <- append(valid_predictions, list(pred))
+      }
+    }
   }
   
   # Combine predictions from all workers
@@ -277,6 +303,12 @@ predict_distributed_forest <- function(distributed_forest, X_new) {
   
   # Extract dimensions from first valid prediction
   first_pred <- valid_predictions[[1]]
+  
+  # Defensive programming: check structure before accessing
+  if (!is.list(first_pred) || is.null(first_pred$alpha_predictions)) {
+    stop("Invalid prediction structure from workers")
+  }
+  
   n_classes <- ncol(first_pred$alpha_predictions)
   
   # Initialize combined results
@@ -284,7 +316,7 @@ predict_distributed_forest <- function(distributed_forest, X_new) {
   combined_mean <- array(0, dim = c(n_samples, n_classes))
   
   # Weight each worker's contribution by number of trees
-  total_trees <- sum(distributed_forest$trees_per_worker)
+  total_trees <- sum(distributed_forest$trees_per_worker[seq_along(valid_predictions)])
   
   for (i in seq_along(valid_predictions)) {
     pred <- valid_predictions[[i]]
