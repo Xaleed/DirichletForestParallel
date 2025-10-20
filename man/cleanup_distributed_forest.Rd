@@ -7,10 +7,8 @@
 cleanup_distributed_forest(distributed_forest)
 }
 \arguments{
-\item{distributed_forest}{A distributed forest object created by
-\code{\link{DirichletForest_distributed}}}
+\item{distributed_forest}{A distributed forest object}
 }
 \description{
-Properly cleans up resources used by distributed forest, especially
-important for cluster-based parallelization on Windows.
+Properly cleans up resources used by distributed forest.
 }

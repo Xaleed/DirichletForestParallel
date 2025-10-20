@@ -13,6 +13,7 @@ DirichletForest_distributed(
   m_try = -1,
   seed = 123,
   method = "mom",
+  store_samples = FALSE,
   n_cores = -1
 )
 }
@@ -35,45 +36,16 @@ If -1, uses sqrt(p) (default: -1)}
 
 \item{method}{Character, parameter estimation method: "mle" or "mom" (default: "mom")}
 
+\item{store_samples}{Logical, if TRUE stores sample indices for weight-based predictions,
+if FALSE pre-computes predictions for faster inference (default: FALSE)}
+
 \item{n_cores}{Integer, number of cores to use. If -1, uses all available cores minus 1.
 If 1, uses sequential processing (default: -1)}
 }
 \value{
-A list containing the distributed forest model with the following components:
-\describe{
-\item{type}{Character, type of parallelization used ("sequential", "fork", or "cluster")}
-\item{forest}{For sequential: the forest object}
-\item{worker_forests}{For fork: list of worker forests}
-\item{cluster}{For cluster: the cluster object}
-\item{n_cores}{Integer, number of cores used}
-\item{trees_per_worker}{Integer vector, number of trees per worker}
-\item{total_trees}{Integer, total number of trees}
-}
+A list containing the distributed forest model
 }
 \description{
 Builds a Dirichlet regression forest using parallel processing when available.
 Supports both fork-based (Unix/Mac) and cluster-based (Windows) parallelization.
-}
-\examples{
-\dontrun{
-# Generate sample data
-n <- 100
-p <- 5
-k <- 3
-X <- matrix(rnorm(n * p), n, p)
-
-# Generate compositional response
-alpha <- matrix(runif(k), 1, k) + 0.5
-Y <- matrix(0, n, k)
-for(i in 1:n) {
-  Y[i, ] <- MCMCpack::rdirichlet(1, alpha)
-}
-
-# Build forest
-forest <- DirichletForest_distributed(X, Y, B = 50, n_cores = 2)
-
-# Clean up (important for cluster-based)
-cleanup_distributed_forest(forest)
-}
-
 }

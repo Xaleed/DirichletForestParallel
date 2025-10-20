@@ -8,7 +8,8 @@ Authors@R:
 Description: Implementation of Dirichlet Regression Forest algorithm with 
     maximum likelihood and method of moments parameter estimation. Supports 
     parallel processing for large datasets using both fork-based (Unix/Mac) 
-    and cluster-based (Windows) approaches.
+    and cluster-based (Windows) approaches. Supports both averaging-based and weight-based (DRF algorithm) predictions 
+    for Dirichlet forest regression.    
 License: GPL-3
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)

@@ -13,47 +13,17 @@
 #'        If -1, uses sqrt(p) (default: -1)
 #' @param seed Integer, random seed for reproducibility (default: 123)
 #' @param method Character, parameter estimation method: "mle" or "mom" (default: "mom")
+#' @param store_samples Logical, if TRUE stores sample indices for weight-based predictions,
+#'        if FALSE pre-computes predictions for faster inference (default: FALSE)
 #' @param n_cores Integer, number of cores to use. If -1, uses all available cores minus 1.
 #'        If 1, uses sequential processing (default: -1)
 #'
-#' @return A list containing the distributed forest model with the following components:
-#' \describe{
-#'   \item{type}{Character, type of parallelization used ("sequential", "fork", or "cluster")}
-#'   \item{forest}{For sequential: the forest object}
-#'   \item{worker_forests}{For fork: list of worker forests}
-#'   \item{cluster}{For cluster: the cluster object}
-#'   \item{n_cores}{Integer, number of cores used}
-#'   \item{trees_per_worker}{Integer vector, number of trees per worker}
-#'   \item{total_trees}{Integer, total number of trees}
-#' }
-#'
-#' @examples
-#' \dontrun{
-#' # Generate sample data
-#' n <- 100
-#' p <- 5
-#' k <- 3
-#' X <- matrix(rnorm(n * p), n, p)
-#' 
-#' # Generate compositional response
-#' alpha <- matrix(runif(k), 1, k) + 0.5
-#' Y <- matrix(0, n, k)
-#' for(i in 1:n) {
-#'   Y[i, ] <- MCMCpack::rdirichlet(1, alpha)
-#' }
-#' 
-#' # Build forest
-#' forest <- DirichletForest_distributed(X, Y, B = 50, n_cores = 2)
-#' 
-#' # Clean up (important for cluster-based)
-#' cleanup_distributed_forest(forest)
-#' }
+#' @return A list containing the distributed forest model
 #'
 #' @export
-
 DirichletForest_distributed <- function(X, Y, B = 100, d_max = 10, n_min = 5, 
-                                        m_try = -1, seed = 123, method = "mom", 
-                                        n_cores = -1) {
+                                        m_try = -1, seed = 123, method = "mom",
+                                        store_samples = FALSE, n_cores = -1) {
   
   # Input validation
   if (!is.matrix(X) || !is.matrix(Y)) {
@@ -75,12 +45,13 @@ DirichletForest_distributed <- function(X, Y, B = 100, d_max = 10, n_min = 5,
   
   # Force sequential if n_cores = 1
   if (n_cores == 1) {
-    forest_seq <- DirichletForest(X, Y, B, d_max, n_min, m_try, seed, method)
+    forest_seq <- DirichletForest(X, Y, B, d_max, n_min, m_try, seed, method, store_samples)
     return(list(
       type = "sequential",
       forest = forest_seq,
       n_cores = 1,
-      trees_per_worker = B
+      trees_per_worker = B,
+      store_samples = store_samples
     ))
   }
   
@@ -92,16 +63,18 @@ DirichletForest_distributed <- function(X, Y, B = 100, d_max = 10, n_min = 5,
   
   # For small forests, use sequential
   if (B < max(4, n_cores)) {
-    forest_seq <- DirichletForest(X, Y, B, d_max, n_min, m_try, seed, method)
+    forest_seq <- DirichletForest(X, Y, B, d_max, n_min, m_try, seed, method, store_samples)
     return(list(
       type = "sequential", 
       forest = forest_seq,
       n_cores = 1,
-      trees_per_worker = B
+      trees_per_worker = B,
+      store_samples = store_samples
     ))
   }
   
   cat("Building distributed forest with", n_cores, "workers for", B, "trees\n")
+  cat("Store samples mode:", store_samples, "\n")
   
   # Distribute trees across workers
   trees_per_core <- rep(B %/% n_cores, n_cores)
@@ -121,7 +94,8 @@ DirichletForest_distributed <- function(X, Y, B = 100, d_max = 10, n_min = 5,
     worker_forests <- parallel::mclapply(seq_len(n_cores), function(i) {
       DirichletForest(X, Y, B = trees_per_core[i], d_max = d_max,
                       n_min = n_min, m_try = m_try, 
-                      seed = worker_seeds[i], method = method)
+                      seed = worker_seeds[i], method = method,
+                      store_samples = store_samples)
     }, mc.cores = n_cores)
     
     return(list(
@@ -129,50 +103,55 @@ DirichletForest_distributed <- function(X, Y, B = 100, d_max = 10, n_min = 5,
       worker_forests = worker_forests,
       n_cores = n_cores,
       trees_per_worker = trees_per_core,
-      total_trees = sum(trees_per_core)
+      total_trees = sum(trees_per_core),
+      store_samples = store_samples
     ))
     
+  # In DirichletForest_distributed function, modify the Windows cluster section:
   } else {
-    # Windows: cluster-based - keep workers alive for predictions
-    cat("Using persistent cluster (Windows)\n")
-    
-    cl <- parallel::makeCluster(n_cores, type = "PSOCK")
-    
-    # Setup workers with Rcpp functions
-    setup_cluster_workers(cl)
-    
-    # Export variables to workers
-    parallel::clusterExport(cl, c("X", "Y", "d_max", "n_min", "m_try", "method", 
-                                  "trees_per_core", "worker_seeds"), envir = environment())
-    
-    # Build forests in each worker
-    parallel::clusterApply(cl, seq_len(n_cores), function(worker_id) {
-      # Build and store forest in worker's environment
-      worker_forest <- DirichletForest(X, Y, B = trees_per_core[worker_id],
-                                       d_max = d_max, n_min = n_min, m_try = m_try,
-                                       seed = worker_seeds[worker_id], method = method)
-      # Store in worker's global environment
-      assign("worker_forest", worker_forest, envir = .GlobalEnv)
-      return(worker_forest$n_trees)  # Just return confirmation
-    })
-    
-    return(list(
-      type = "cluster",
-      cluster = cl,
-      n_cores = n_cores, 
-      trees_per_worker = trees_per_core,
-      total_trees = sum(trees_per_core)
-    ))
+      # Windows: cluster-based - keep workers alive for predictions
+      cat("Using persistent cluster (Windows)\n")
+      
+      cl <- parallel::makeCluster(n_cores, type = "PSOCK")
+      
+      # Setup workers with Rcpp functions
+      setup_cluster_workers(cl)
+      
+      # Export variables to workers
+      parallel::clusterExport(cl, c("X", "Y", "d_max", "n_min", "m_try", "method", 
+                                  "trees_per_core", "worker_seeds", "store_samples"), 
+                            envir = environment())
+      
+      # Build forests in each worker
+      parallel::clusterApply(cl, seq_len(n_cores), function(worker_id) {
+        # Build and store forest in worker's environment
+        worker_forest <- DirichletForest(X, Y, B = trees_per_core[worker_id],
+                                      d_max = d_max, n_min = n_min, m_try = m_try,
+                                      seed = worker_seeds[worker_id], method = method,
+                                      store_samples = store_samples)
+        # Store forest and training data in worker's global environment
+        assign("worker_forest", worker_forest, envir = .GlobalEnv)
+        assign("Y_train", Y, envir = .GlobalEnv)  # Store Y_train explicitly
+        return(worker_forest$n_trees)
+      })
+      
+      return(list(
+        type = "cluster",
+        cluster = cl,
+        n_cores = n_cores, 
+        trees_per_worker = trees_per_core,
+        total_trees = sum(trees_per_core),
+        store_samples = store_samples,
+        Y_train = Y  # Store Y_train in the returned object as well
+      ))
   }
 }
 
 #' Clean Up Distributed Forest
 #'
-#' Properly cleans up resources used by distributed forest, especially
-#' important for cluster-based parallelization on Windows.
+#' Properly cleans up resources used by distributed forest.
 #'
-#' @param distributed_forest A distributed forest object created by 
-#'        \code{\link{DirichletForest_distributed}}
+#' @param distributed_forest A distributed forest object
 #'
 #' @export
 cleanup_distributed_forest <- function(distributed_forest) {
@@ -186,136 +165,87 @@ cleanup_distributed_forest <- function(distributed_forest) {
 #' Predict with Distributed Dirichlet Forest
 #'
 #' Makes predictions using a distributed Dirichlet forest model.
-#' Handles all types of parallelization transparently.
+#' Automatically uses the appropriate prediction mode based on store_samples setting.
 #'
-#' @param distributed_forest A distributed forest object created by 
-#'        \code{\link{DirichletForest_distributed}}
-#' @param X_new Numeric matrix of new predictors to predict on (n_new x p)
+#' @param distributed_forest A distributed forest object
+#' @param X_new Numeric matrix of new predictors
+#' @param method Character, parameter estimation method: "mle" or "mom" (default: "mom")
 #'
-#' @return A list containing predictions:
-#' \describe{
-#'   \item{alpha_predictions}{Matrix of predicted Dirichlet alpha parameters (n_new x k)}
-#'   \item{mean_predictions}{Matrix of predicted mean compositions (n_new x k)}
-#' }
-#'
-#' @examples
-#' \dontrun{
-#' # Using the forest from the previous example
-#' X_new <- matrix(rnorm(20 * 5), 20, 5)
-#' predictions <- predict_distributed_forest(forest, X_new)
-#' 
-#' # Access predictions
-#' alpha_pred <- predictions$alpha_predictions
-#' mean_pred <- predictions$mean_predictions
-#' }
+#' @return A list with alpha_predictions and mean_predictions
 #'
 #' @export
-predict_distributed_forest <- function(distributed_forest, X_new) {
+predict_distributed_forest <- function(distributed_forest, X_new, method = "mom") {
   
   if (!is.matrix(X_new)) {
     X_new <- as.matrix(X_new)
   }
   
   n_samples <- nrow(X_new)
+  store_samples <- distributed_forest$store_samples
+  
+  cat("Prediction mode:", ifelse(store_samples, "Weight-based (distributional)", "Fast (pre-computed)"), "\n")
   
   if (distributed_forest$type == "sequential") {
-    # Simple case - just use regular prediction
-    return(PredictDirichletForest(distributed_forest$forest, X_new))
+    return(PredictDirichletForest(distributed_forest$forest, X_new, method = method))
   }
   
   if (distributed_forest$type == "fork") {
-    # Fork-based: workers are done, forests are in memory
     cat("Predicting with", distributed_forest$n_cores, "fork workers\n")
     
-    # Get predictions from each worker's forest
     worker_predictions <- parallel::mclapply(seq_len(distributed_forest$n_cores), function(i) {
       worker_forest <- distributed_forest$worker_forests[[i]]
       if (worker_forest$n_trees > 0) {
-        # Force proper return structure
-        pred_result <- PredictDirichletForest(worker_forest, X_new)
-        # Ensure it's a proper list structure
+        pred_result <- PredictDirichletForest(worker_forest, X_new, method = method)
         if (is.list(pred_result) && 
             !is.null(pred_result$alpha_predictions) && 
             !is.null(pred_result$mean_predictions)) {
           return(pred_result)
-        } else {
-          return(NULL)
-        }
-      } else {
-        return(NULL)
-      }
-    }, mc.cores = distributed_forest$n_cores, mc.preschedule = FALSE)
-    
-    # Filter out null results and validate structure
-    valid_predictions <- list()
-    for (i in seq_along(worker_predictions)) {
-      pred <- worker_predictions[[i]]
-      if (!is.null(pred) && is.list(pred) && 
-          !is.null(pred$alpha_predictions) && !is.null(pred$mean_predictions)) {
-        valid_predictions <- append(valid_predictions, list(pred))
-      }
-    }
-    
-  } else if (distributed_forest$type == "cluster") {
-    # Cluster-based: send prediction job to each worker
-    cat("Predicting with", distributed_forest$n_cores, "cluster workers\n")
-    
-    cl <- distributed_forest$cluster
-    
-    # Export test data to workers
-    parallel::clusterExport(cl, "X_new", envir = environment())
-    
-    # Each worker predicts with its forest
-    worker_predictions <- parallel::clusterApply(cl, seq_len(distributed_forest$n_cores), function(worker_id) {
-      # Use the forest stored in this worker's environment
-      if (exists("worker_forest", envir = .GlobalEnv)) {
-        forest <- get("worker_forest", envir = .GlobalEnv)
-        if (forest$n_trees > 0) {
-          pred_result <- PredictDirichletForest(forest, X_new)
-          # Ensure proper structure
-          if (is.list(pred_result) && 
-              !is.null(pred_result$alpha_predictions) && 
-              !is.null(pred_result$mean_predictions)) {
-            return(pred_result)
-          }
         }
       }
       return(NULL)
-    })
+    }, mc.cores = distributed_forest$n_cores, mc.preschedule = FALSE)
     
-    # Filter out null results and validate structure
-    valid_predictions <- list()
-    for (i in seq_along(worker_predictions)) {
-      pred <- worker_predictions[[i]]
-      if (!is.null(pred) && is.list(pred) && 
-          !is.null(pred$alpha_predictions) && !is.null(pred$mean_predictions)) {
-        valid_predictions <- append(valid_predictions, list(pred))
-      }
-    }
+    valid_predictions <- Filter(function(p) {
+      !is.null(p) && is.list(p) && !is.null(p$alpha_predictions)
+    }, worker_predictions)
+    
+  } else if (distributed_forest$type == "cluster") {
+    cat("Predicting with", distributed_forest$n_cores, "cluster workers\n")
+    
+    cl <- distributed_forest$cluster
+    parallel::clusterExport(cl, c("X_new", "method"), envir = environment())
+    
+    worker_predictions <- parallel::clusterApply(cl, seq_len(distributed_forest$n_cores), 
+      function(worker_id) {
+        if (exists("worker_forest", envir = .GlobalEnv)) {
+          forest <- get("worker_forest", envir = .GlobalEnv)
+          if (forest$n_trees > 0) {
+            pred_result <- PredictDirichletForest(forest, X_new, method = method)
+            if (is.list(pred_result) && !is.null(pred_result$alpha_predictions)) {
+              return(pred_result)
+            }
+          }
+        }
+        return(NULL)
+      })
+    
+    valid_predictions <- Filter(function(p) {
+      !is.null(p) && is.list(p) && !is.null(p$alpha_predictions)
+    }, worker_predictions)
   }
   
-  # Combine predictions from all workers
   if (length(valid_predictions) == 0) {
     stop("No valid predictions from workers")
   }
   
   cat("Combining predictions from", length(valid_predictions), "workers\n")
   
-  # Extract dimensions from first valid prediction
   first_pred <- valid_predictions[[1]]
-  
-  # Defensive programming: check structure before accessing
-  if (!is.list(first_pred) || is.null(first_pred$alpha_predictions)) {
-    stop("Invalid prediction structure from workers")
-  }
-  
   n_classes <- ncol(first_pred$alpha_predictions)
   
-  # Initialize combined results
   combined_alpha <- array(0, dim = c(n_samples, n_classes))
   combined_mean <- array(0, dim = c(n_samples, n_classes))
   
-  # Weight each worker's contribution by number of trees
   total_trees <- sum(distributed_forest$trees_per_worker[seq_along(valid_predictions)])
   
   for (i in seq_along(valid_predictions)) {
@@ -329,5 +259,152 @@ predict_distributed_forest <- function(distributed_forest, X_new) {
   return(list(
     alpha_predictions = combined_alpha,
     mean_predictions = combined_mean
+  ))
+}
+
+#' Get Sample Weights for a Test Sample
+#'
+#' Computes the weight assigned to each training sample by the DRF algorithm
+#' for a given test sample. Useful for understanding model predictions.
+#' Only works when store_samples = TRUE.
+#'
+#' @param forest_model A forest model created by \code{\link{DirichletForest}} with store_samples = TRUE
+#' @param test_sample Numeric vector of length p (must match training features)
+#'
+#' @return A list with:
+#' \describe{
+#'   \item{sample_indices}{Integer vector of training sample indices (1-indexed for R)}
+#'   \item{weights}{Numeric vector of corresponding weights (sum to 1.0)}
+#'   \item{Y_values}{Matrix of Y values for the weighted samples (n_weighted x k)}
+#' }
+#'
+#' @export
+get_sample_weights <- function(forest_model, test_sample) {
+  
+  # Check if store_samples was enabled
+  if (!is.null(forest_model$store_samples) && !forest_model$store_samples) {
+    stop("Sample weights are only available when store_samples = TRUE.\n",
+         "Please rebuild your forest with store_samples = TRUE.")
+  }
+  
+  if (!is.vector(test_sample)) {
+    test_sample <- as.vector(test_sample)
+  }
+  
+  result <- GetSampleWeights(forest_model, test_sample)
+  
+  # Convert 0-indexed C++ indices to 1-indexed R
+  result$sample_indices <- result$sample_indices + 1
+  
+  return(result)
+}
+
+#' Get Sample Weights for Distributed Forest
+#'
+#' Computes sample weights using a distributed forest model.
+#' Only works when store_samples = TRUE.
+#'
+#' @param distributed_forest A distributed forest object with store_samples = TRUE
+#' @param test_sample Numeric vector of length p (must match training features)
+#'
+#' @return A list with sample_indices, weights, and Y_values
+#'
+#' @export
+get_sample_weights_distributed <- function(distributed_forest, test_sample) {
+  
+  # Check if store_samples was enabled
+  if (!is.null(distributed_forest$store_samples) && !distributed_forest$store_samples) {
+    stop("Sample weights are only available when store_samples = TRUE.\n",
+         "Please rebuild your forest with store_samples = TRUE.")
+  }
+  
+  if (!is.vector(test_sample)) {
+    test_sample <- as.vector(test_sample)
+  }
+  
+  if (distributed_forest$type == "sequential") {
+    return(get_sample_weights(distributed_forest$forest, test_sample))
+  }
+  
+  # For distributed forests, combine weights from all workers
+  if (distributed_forest$type == "fork") {
+    worker_weights <- parallel::mclapply(seq_len(distributed_forest$n_cores), function(i) {
+      worker_forest <- distributed_forest$worker_forests[[i]]
+      if (worker_forest$n_trees > 0) {
+        return(GetSampleWeights(worker_forest, test_sample))
+      }
+      return(NULL)
+    }, mc.cores = distributed_forest$n_cores)
+    
+    # Get Y values from the first worker
+    Y_train <- distributed_forest$worker_forests[[1]]$Y_train
+    
+  } else if (distributed_forest$type == "cluster") {
+    # Check if cluster is still valid
+    cl <- distributed_forest$cluster
+    if (!inherits(cl, "cluster")) {
+      stop("Cluster is no longer valid. The cluster may have been stopped or disconnected.\n",
+           "Please rebuild the forest or ensure the cluster remains active.")
+    }
+    
+    # Export test sample to workers
+    parallel::clusterExport(cl, "test_sample", envir = environment())
+    
+    # Get weights from workers
+    worker_weights <- tryCatch({
+      parallel::clusterApply(cl, seq_len(distributed_forest$n_cores), 
+        function(worker_id) {
+          if (exists("worker_forest", envir = .GlobalEnv)) {
+            forest <- get("worker_forest", envir = .GlobalEnv)
+            if (forest$n_trees > 0) {
+              return(GetSampleWeights(forest, test_sample))
+            }
+          }
+          return(NULL)
+        })
+    }, error = function(e) {
+      stop("Failed to get weights from workers.\nError: ", e$message)
+    })
+    
+    # Use Y_train stored in the distributed_forest object
+    Y_train <- distributed_forest$Y_train
+    if (is.null(Y_train)) {
+      stop("Training data not found in the distributed forest object.")
+    }
+  }
+  
+  # Combine weights from all workers
+  valid_weights <- Filter(Negate(is.null), worker_weights)
+  
+  if (length(valid_weights) == 0) {
+    stop("No valid weights from workers")
+  }
+  
+  # Merge all weights
+  all_indices <- c()
+  all_weights <- c()
+  
+  for (i in seq_along(valid_weights)) {
+    w <- valid_weights[[i]]
+    all_indices <- c(all_indices, w$sample_indices + 1)  # Convert to 1-indexed
+    weight_scale <- distributed_forest$trees_per_worker[i] / distributed_forest$total_trees
+    all_weights <- c(all_weights, w$weights * weight_scale)
+  }
+  
+  # Aggregate duplicate indices
+  unique_indices <- unique(all_indices)
+  aggregated_weights <- sapply(unique_indices, function(idx) {
+    sum(all_weights[all_indices == idx])
+  })
+  
+  # Normalize
+  aggregated_weights <- aggregated_weights / sum(aggregated_weights)
+  
+  Y_values <- Y_train[unique_indices, , drop = FALSE]
+  
+  return(list(
+    sample_indices = unique_indices,
+    weights = aggregated_weights,
+    Y_values = Y_values
   ))
 }

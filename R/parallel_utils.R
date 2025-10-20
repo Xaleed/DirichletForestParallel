@@ -1,5 +1,5 @@
-# Simple and reliable approach for cluster workers
-setup_cluster_workers <- function(cl, pkg_name = "DirichletForestParallel") {
+# Setup cluster workers for installed package
+setup_cluster_workers_installed <- function(cl, pkg_name = "DirichletForestParallel") {
   
   # Load Rcpp on workers
   parallel::clusterEvalQ(cl, library(Rcpp))
@@ -29,4 +29,56 @@ setup_cluster_workers <- function(cl, pkg_name = "DirichletForestParallel") {
       return("Functions not found")
     }
   })
+}
+
+# Setup cluster workers for development (using sourceCpp)
+setup_cluster_workers <- function(cl, cpp_file = NULL) {
+  
+  # Load Rcpp on workers
+  parallel::clusterEvalQ(cl, library(Rcpp))
+  
+  # Auto-detect cpp file if not provided
+  if (is.null(cpp_file)) {
+    # Try to find it relative to the package source
+    possible_paths <- c(
+      "src/dirichlet_forest.cpp",  # If running from package root
+      "../src/dirichlet_forest.cpp",  # If running from R/
+      file.path(getwd(), "src/dirichlet_forest.cpp")  # Absolute from working dir
+    )
+    
+    cpp_file <- NULL
+    for (path in possible_paths) {
+      if (file.exists(path)) {
+        cpp_file <- normalizePath(path)
+        break
+      }
+    }
+    
+    if (is.null(cpp_file)) {
+      stop("Could not find dirichlet_forest.cpp. Please provide cpp_file parameter.")
+    }
+  }
+  
+  if (!file.exists(cpp_file)) {
+    stop("C++ file not found: ", cpp_file)
+  }
+  
+  cat("Loading C++ functions from:", cpp_file, "\n")
+  
+  # Source the C++ file on each worker
+  parallel::clusterCall(cl, function(cpp_path) {
+    Rcpp::sourceCpp(cpp_path)
+    return("C++ functions loaded")
+  }, cpp_path = cpp_file)
+  
+  # Verify functions are available
+  result <- parallel::clusterCall(cl, function() {
+    if (exists("DirichletForest") && exists("PredictDirichletForest")) {
+      return("Functions available")
+    } else {
+      return("Functions not found")
+    }
+  })
+  
+  cat("Worker setup results:", unlist(result), "\n")
 }

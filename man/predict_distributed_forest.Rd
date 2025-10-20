@@ -4,34 +4,19 @@
 \alias{predict_distributed_forest}
 \title{Predict with Distributed Dirichlet Forest}
 \usage{
-predict_distributed_forest(distributed_forest, X_new)
+predict_distributed_forest(distributed_forest, X_new, method = "mom")
 }
 \arguments{
-\item{distributed_forest}{A distributed forest object created by
-\code{\link{DirichletForest_distributed}}}
+\item{distributed_forest}{A distributed forest object}
 
-\item{X_new}{Numeric matrix of new predictors to predict on (n_new x p)}
+\item{X_new}{Numeric matrix of new predictors}
+
+\item{method}{Character, parameter estimation method: "mle" or "mom" (default: "mom")}
 }
 \value{
-A list containing predictions:
-\describe{
-\item{alpha_predictions}{Matrix of predicted Dirichlet alpha parameters (n_new x k)}
-\item{mean_predictions}{Matrix of predicted mean compositions (n_new x k)}
-}
+A list with alpha_predictions and mean_predictions
 }
 \description{
 Makes predictions using a distributed Dirichlet forest model.
-Handles all types of parallelization transparently.
-}
-\examples{
-\dontrun{
-# Using the forest from the previous example
-X_new <- matrix(rnorm(20 * 5), 20, 5)
-predictions <- predict_distributed_forest(forest, X_new)
-
-# Access predictions
-alpha_pred <- predictions$alpha_predictions
-mean_pred <- predictions$mean_predictions
-}
-
+Automatically uses the appropriate prediction mode based on store_samples setting.
 }
