@@ -58,7 +58,7 @@ cleanup_distributed_forest(df_par)
 
 ### **Two Prediction Modes**
 
-#### Fast Mode (default: `store_samples = FALSE`)
+#### default: `store_samples = FALSE`
 Pre-computes predictions at training time for faster inference:
 ```r
 df_fast <- DirichletForest_distributed(X, Y, B = 100, store_samples = FALSE)
