@@ -161,7 +161,6 @@ cleanup_distributed_forest <- function(distributed_forest) {
     distributed_forest$cluster <- NULL
   }
 }
-
 #' Predict with Distributed Dirichlet Forest
 #'
 #' Makes predictions using a distributed Dirichlet forest model.
@@ -176,8 +175,23 @@ cleanup_distributed_forest <- function(distributed_forest) {
 #' @export
 predict_distributed_forest <- function(distributed_forest, X_new, method = "mom") {
   
+  # Input validation and coercion
   if (!is.matrix(X_new)) {
-    X_new <- as.matrix(X_new)
+    if (is.data.frame(X_new)) {
+      X_new <- as.matrix(X_new)
+    } else if (is.vector(X_new) || is.numeric(X_new)) {
+      # Handle vector input - convert to 1-row matrix
+      X_new <- matrix(X_new, nrow = 1)
+      warning("Input was a vector. Converting to 1-row matrix. ",
+              "Consider using X_new[i, , drop = FALSE] when subsetting matrices.")
+    } else {
+      stop("X_new must be a matrix, data frame, or numeric vector")
+    }
+  }
+  
+  # Ensure it's numeric
+  if (!is.numeric(X_new)) {
+    stop("X_new must contain numeric values")
   }
   
   n_samples <- nrow(X_new)
@@ -287,8 +301,31 @@ get_sample_weights <- function(forest_model, test_sample) {
          "Please rebuild your forest with store_samples = TRUE.")
   }
   
-  if (!is.vector(test_sample)) {
+  # Input validation and coercion
+  if (is.matrix(test_sample)) {
+    if (nrow(test_sample) != 1) {
+      stop("test_sample must be a single observation (vector or 1-row matrix)")
+    }
     test_sample <- as.vector(test_sample)
+    warning("test_sample was a matrix. Converting to vector. ",
+            "Consider using test_sample[1, , drop = FALSE] then converting to vector with as.vector().")
+  } else if (is.data.frame(test_sample)) {
+    if (nrow(test_sample) != 1) {
+      stop("test_sample must be a single observation")
+    }
+    test_sample <- as.numeric(test_sample[1, ])
+    warning("test_sample was a data frame. Converting to numeric vector.")
+  }
+  
+  if (!is.vector(test_sample) && !is.numeric(test_sample)) {
+    stop("test_sample must be a numeric vector, 1-row matrix, or single-row data frame")
+  }
+  
+  # Ensure it's a plain numeric vector
+  test_sample <- as.vector(test_sample)
+  
+  if (!is.numeric(test_sample)) {
+    stop("test_sample must contain numeric values")
   }
   
   result <- GetSampleWeights(forest_model, test_sample)
@@ -318,8 +355,32 @@ get_sample_weights_distributed <- function(distributed_forest, test_sample) {
          "Please rebuild your forest with store_samples = TRUE.")
   }
   
-  if (!is.vector(test_sample)) {
+  # Input validation and coercion
+  if (is.matrix(test_sample)) {
+    if (nrow(test_sample) != 1) {
+      stop("test_sample must be a single observation (vector or 1-row matrix)")
+    }
     test_sample <- as.vector(test_sample)
+    warning("test_sample was a matrix. Converting to vector. ",
+            "Consider using test_sample[1, , drop = FALSE] for consistency, ",
+            "then pass as vector or use as.vector().")
+  } else if (is.data.frame(test_sample)) {
+    if (nrow(test_sample) != 1) {
+      stop("test_sample must be a single observation")
+    }
+    test_sample <- as.numeric(test_sample[1, ])
+    warning("test_sample was a data frame. Converting to numeric vector.")
+  }
+  
+  if (!is.vector(test_sample) && !is.numeric(test_sample)) {
+    stop("test_sample must be a numeric vector, 1-row matrix, or single-row data frame")
+  }
+  
+  # Ensure it's a plain numeric vector
+  test_sample <- as.vector(test_sample)
+  
+  if (!is.numeric(test_sample)) {
+    stop("test_sample must contain numeric values")
   }
   
   if (distributed_forest$type == "sequential") {

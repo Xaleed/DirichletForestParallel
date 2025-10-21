@@ -19,9 +19,12 @@ Y <- MCMCpack::rdirichlet(n, c(2, 3, 4))
 X_test <- matrix(rnorm(3 * 4), 3, 4)
 
 # Sequential
-f1 <- DirichletForest_distributed(X, Y, B = 20, m_try = 4, seed = 999, n_cores = 1, 
+f1 <- DirichletForest_distributed(X, Y, B = 20, m_try = 1, seed = 999, n_cores = 1, 
                                   store_samples = TRUE)
-w1 <- get_sample_weights_distributed(f1, X_test[1,])
+pr <- predict_distributed_forest(f1, X_test[1, , drop = FALSE])
+pr$mean_predictions
+
+w1 <- get_sample_weights_distributed(f1,  X_test[1, , drop = FALSE])
 
 # Parallel
 f2 <- DirichletForest_distributed(X, Y, B = 20, m_try = 4, seed = 999, n_cores = 3, 
@@ -35,11 +38,64 @@ cat("Identical?", all.equal(w1$weights, w2$weights, tolerance = 1e-10), "\n")
 cleanup_distributed_forest(f1)
 cleanup_distributed_forest(f2)
 
+#compare with julia
+set.seed(123)
+n <- 200
+X <- matrix(rnorm(n * 4), n, 4)
+Y <- MCMCpack::rdirichlet(n, c(2, 3, 4))
+X_test <- matrix(rnorm(3 * 1), 1, 4)
+
+# Sequential
+f1 <- DirichletForest_distributed(X, Y, B = 20, m_try = 4, seed = 999, n_cores = 1, 
+                                  store_samples = TRUE)
+pr <- predict_distributed_forest(f1, X_test[1,])
+pr$mean_predictions
+
+cat("\n=== Julia Implementation ===\n")
+library(JuliaCall)
+julia_source("C:\\Users\\29827094\\Documents\\GitHub\\Dirichlet_RF_clean_code\\Julia\\dirichlet_decision_tree.jl")
+
+time_julia <- system.time({
+  # Assign data
+  julia_assign("X_train", X)
+  julia_assign("Y_train", Y)
+  julia_assign("X_test", X_test)
+  
+  # Train and predict
+  julia_eval('begin
+    x_tr, y_tr, x_te = process_matrix_data(X_train, Y_train, X_test)
+    forest = DirichletForest(1)
+    fit_dirichlet_forest!(forest, x_tr, y_tr, 3000, 10, 5,4, estimate_parameters_mom)
+    predictions = predict_dirichlet_forest(forest, x_te)
+  end')
+  
+  pred_julia <- julia_eval("predictions")
+})
+
+pred_julia
+pr$mean_predictions
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # Fast mode (pre-computed predictions)
 forest_fast <- DirichletForest_distributed(X, Y, B = 100, store_samples = FALSE)
 pred <- predict_distributed_forest(forest_fast, X_test)
 # Distributional mode (weight-based predictions)
-forest_dist <- DirichletForest_distributed(X, Y, B = 20, m_try = 4,seed = 999, n_cores = 4,method = "mom" , store_samples = TRUE)
+forest_dist <- DirichletForest_distributed(X, Y, B = 20, m_try = 2,seed = 999, n_cores = 1,method = "mom" , store_samples = TRUE)
 pred <- predict_distributed_forest(forest_dist, X_test)
 weights <- get_sample_weights_distributed(forest_dist, X_test[1,])
 weights1
