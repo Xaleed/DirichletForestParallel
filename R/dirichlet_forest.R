@@ -115,7 +115,7 @@ DirichletForest_distributed <- function(X, Y, B = 100, d_max = 10, n_min = 5,
       cl <- parallel::makeCluster(n_cores, type = "PSOCK")
       
       # Setup workers with Rcpp functions
-      setup_cluster_workers(cl)
+      setup_cluster_workers_installed(cl)
       
       # Export variables to workers
       parallel::clusterExport(cl, c("X", "Y", "d_max", "n_min", "m_try", "method", 
