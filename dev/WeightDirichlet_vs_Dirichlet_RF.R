@@ -6,9 +6,9 @@ library(microbenchmark)
 library(DirichletForestParallel)
 
 # Source your local code
-sourceCpp("C:/Users/29827094/Documents/GitHub/DirichletForestParallel/src/dirichlet_forest.cpp")
-source("C:/Users/29827094/Documents/GitHub/DirichletForestParallel/R/dirichlet_forest.R")
-source("C:/Users/29827094/Documents/GitHub/DirichletForestParallel/R/parallel_utils.R")
+#sourceCpp("C:/Users/29827094/Documents/GitHub/DirichletForestParallel/src/dirichlet_forest.cpp")
+#source("C:/Users/29827094/Documents/GitHub/DirichletForestParallel/R/dirichlet_forest.R")
+#source("C:/Users/29827094/Documents/GitHub/DirichletForestParallel/R/parallel_utils.R")
 
 
 # Test: Weights should be identical regardless of n_cores (same seed)
