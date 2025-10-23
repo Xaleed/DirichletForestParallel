@@ -42,7 +42,7 @@ setup_cluster_workers <- function(cl, cpp_file = NULL) {
     # Try to find it relative to the package source
     possible_paths <- c(
       "src/dirichlet_forest.cpp",  # If running from package root
-      "../src/dirichlet_forest.cpp",  # If running from R/
+      #"../src/dirichlet_forest.cpp",  # If running from R/
       file.path(getwd(), "src/dirichlet_forest.cpp")  # Absolute from working dir
     )
     
