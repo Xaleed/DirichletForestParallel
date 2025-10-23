@@ -9,10 +9,23 @@ This repository contains an implementation of a **parallel Dirichlet Random Fore
 
 ## 📦 Installation  
 
-Clone this repository and install locally in R:  
+### Option 1: Clone this repository and install locally in R:  
 ```r
 devtools::install_github("Xaleed/DirichletForestParallel")
 ```
+### Option 2: Install pre-built binary (no Rtools required - Windows only)
+
+Download and install the latest binary release:
+```r
+# Replace v0.1.0 with the latest release version
+install.packages("https://github.com/Xaleed/DirichletForestParallel/releases/download/v0.1.0/DirichletForestParallel_0.0.0.9000.zip", 
+                 repos = NULL, type = "win.binary")
+```
+
+Or manually:
+1. Go to [Releases](https://github.com/Xaleed/DirichletForestParallel/releases)
+2. Download the `.zip` file from the latest release
+3. In R: `install.packages("path/to/downloaded/file.zip", repos = NULL, type = "win.binary")`
 
 ---
 
