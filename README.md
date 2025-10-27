@@ -168,8 +168,7 @@ Clean up cluster resources (essential on Windows).
 
 1. **Windows users**: Always call `cleanup_distributed_forest()` when done to properly close worker processes
 2. **Small forests**: For B < 10 trees, sequential processing is automatically used
-3. **Memory**: Weight-based mode (`store_samples = TRUE`) uses more memory but enables deeper analysis
-4. **Performance**: Fast mode is recommended for production inference; weight-based for model interpretation
+3. **Memory**: Weight-based mode (`store_samples = TRUE`) uses more memory but enables deeper analysis.
 
 ---
 
