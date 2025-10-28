@@ -18,7 +18,7 @@
 #' @param n_cores Integer, number of cores to use. If -1, uses all available cores minus 1.
 #'        If 1, uses sequential processing (default: -1)
 #'
-#' @return A list containing the distributed forest model
+#' @return A list containing the distributed forest model with fitted values and residuals
 #'
 #' @export
 DirichletForest_distributed <- function(X, Y, B = 100, d_max = 10, n_min = 5, 
@@ -46,13 +46,37 @@ DirichletForest_distributed <- function(X, Y, B = 100, d_max = 10, n_min = 5,
   # Force sequential if n_cores = 1
   if (n_cores == 1) {
     forest_seq <- DirichletForest(X, Y, B, d_max, n_min, m_try, seed, method, store_samples)
-    return(list(
+    
+    result <- list(
       type = "sequential",
       forest = forest_seq,
       n_cores = 1,
       trees_per_worker = B,
       store_samples = store_samples
-    ))
+    )
+    
+    # Compute fitted values and residuals
+    cat("Computing fitted values and residuals...\n")
+    fitted_preds <- predict_distributed_forest(result, X, method = method)
+    
+    alpha_means <- fitted_preds$alpha_predictions / 
+                   rowSums(fitted_preds$alpha_predictions)
+    
+    result$fitted <- list(
+      alpha = fitted_preds$alpha_predictions,
+      mean = fitted_preds$mean_predictions,
+      alpha_mean = alpha_means
+    )
+    
+    result$residuals <- list(
+      mean = Y - fitted_preds$mean_predictions,
+      alpha = Y - alpha_means
+    )
+    
+
+    
+    class(result) <- c("dirichlet_forest", "list")
+    return(result)
   }
   
   # Determine cores for parallel processing
@@ -64,13 +88,37 @@ DirichletForest_distributed <- function(X, Y, B = 100, d_max = 10, n_min = 5,
   # For small forests, use sequential
   if (B < max(4, n_cores)) {
     forest_seq <- DirichletForest(X, Y, B, d_max, n_min, m_try, seed, method, store_samples)
-    return(list(
+    
+    result <- list(
       type = "sequential", 
       forest = forest_seq,
       n_cores = 1,
       trees_per_worker = B,
       store_samples = store_samples
-    ))
+    )
+    
+    # Compute fitted values and residuals
+    cat("Computing fitted values and residuals...\n")
+    fitted_preds <- predict_distributed_forest(result, X, method = method)
+    
+    alpha_means <- fitted_preds$alpha_predictions / 
+                   rowSums(fitted_preds$alpha_predictions)
+    
+    result$fitted <- list(
+      alpha = fitted_preds$alpha_predictions,
+      mean = fitted_preds$mean_predictions,
+      alpha_mean = alpha_means
+    )
+    
+    result$residuals <- list(
+      mean = Y - fitted_preds$mean_predictions,
+      alpha = Y - alpha_means
+    )
+    
+
+    
+    class(result) <- c("dirichlet_forest", "list")
+    return(result)
   }
   
   cat("Building distributed forest with", n_cores, "workers for", B, "trees\n")
@@ -98,52 +146,97 @@ DirichletForest_distributed <- function(X, Y, B = 100, d_max = 10, n_min = 5,
                       store_samples = store_samples)
     }, mc.cores = n_cores)
     
-    return(list(
+    result <- list(
       type = "fork",
       worker_forests = worker_forests,
       n_cores = n_cores,
       trees_per_worker = trees_per_core,
       total_trees = sum(trees_per_core),
       store_samples = store_samples
-    ))
+    )
     
-  # In DirichletForest_distributed function, modify the Windows cluster section:
+    # Compute fitted values and residuals
+    cat("Computing fitted values and residuals...\n")
+    fitted_preds <- predict_distributed_forest(result, X, method = method)
+    
+    alpha_means <- fitted_preds$alpha_predictions / 
+                   rowSums(fitted_preds$alpha_predictions)
+    
+    result$fitted <- list(
+      alpha = fitted_preds$alpha_predictions,
+      mean = fitted_preds$mean_predictions,
+      alpha_mean = alpha_means
+    )
+    
+    result$residuals <- list(
+      mean = Y - fitted_preds$mean_predictions,
+      alpha = Y - alpha_means
+    )
+    
+
+    
+    class(result) <- c("dirichlet_forest", "list")
+    return(result)
+    
   } else {
-      # Windows: cluster-based - keep workers alive for predictions
-      cat("Using persistent cluster (Windows)\n")
-      
-      cl <- parallel::makeCluster(n_cores, type = "PSOCK")
-      
-      # Setup workers with Rcpp functions
-      setup_cluster_workers_installed(cl)
-      
-      # Export variables to workers
-      parallel::clusterExport(cl, c("X", "Y", "d_max", "n_min", "m_try", "method", 
-                                  "trees_per_core", "worker_seeds", "store_samples"), 
-                            envir = environment())
-      
-      # Build forests in each worker
-      parallel::clusterApply(cl, seq_len(n_cores), function(worker_id) {
-        # Build and store forest in worker's environment
-        worker_forest <- DirichletForest(X, Y, B = trees_per_core[worker_id],
-                                      d_max = d_max, n_min = n_min, m_try = m_try,
-                                      seed = worker_seeds[worker_id], method = method,
-                                      store_samples = store_samples)
-        # Store forest and training data in worker's global environment
-        assign("worker_forest", worker_forest, envir = .GlobalEnv)
-        assign("Y_train", Y, envir = .GlobalEnv)  # Store Y_train explicitly
-        return(worker_forest$n_trees)
-      })
-      
-      return(list(
-        type = "cluster",
-        cluster = cl,
-        n_cores = n_cores, 
-        trees_per_worker = trees_per_core,
-        total_trees = sum(trees_per_core),
-        store_samples = store_samples,
-        Y_train = Y  # Store Y_train in the returned object as well
-      ))
+    # Windows: cluster-based - keep workers alive for predictions
+    cat("Using persistent cluster (Windows)\n")
+    
+    cl <- parallel::makeCluster(n_cores, type = "PSOCK")
+    
+    # Setup workers with Rcpp functions
+    setup_cluster_workers(cl)
+    
+    # Export variables to workers
+    parallel::clusterExport(cl, c("X", "Y", "d_max", "n_min", "m_try", "method", 
+                                "trees_per_core", "worker_seeds", "store_samples"), 
+                          envir = environment())
+    
+    # Build forests in each worker
+    parallel::clusterApply(cl, seq_len(n_cores), function(worker_id) {
+      # Build and store forest in worker's environment
+      worker_forest <- DirichletForest(X, Y, B = trees_per_core[worker_id],
+                                    d_max = d_max, n_min = n_min, m_try = m_try,
+                                    seed = worker_seeds[worker_id], method = method,
+                                    store_samples = store_samples)
+      # Store forest and training data in worker's global environment
+      assign("worker_forest", worker_forest, envir = .GlobalEnv)
+      assign("Y_train", Y, envir = .GlobalEnv)
+      return(worker_forest$n_trees)
+    })
+    
+    result <- list(
+      type = "cluster",
+      cluster = cl,
+      n_cores = n_cores, 
+      trees_per_worker = trees_per_core,
+      total_trees = sum(trees_per_core),
+      store_samples = store_samples,
+      Y_train = Y
+    )
+    
+    # Compute fitted values and residuals
+    cat("Computing fitted values and residuals...\n")
+    fitted_preds <- predict_distributed_forest(result, X, method = method)
+    
+    alpha_means <- fitted_preds$alpha_predictions / 
+                   rowSums(fitted_preds$alpha_predictions)
+    
+    result$fitted <- list(
+      alpha = fitted_preds$alpha_predictions,
+      mean = fitted_preds$mean_predictions,
+      alpha_mean = alpha_means
+    )
+    
+    result$residuals <- list(
+      mean = Y - fitted_preds$mean_predictions,
+      alpha = Y - alpha_means
+    )
+    
+
+    
+    class(result) <- c("dirichlet_forest", "list")
+    return(result)
   }
 }
 
