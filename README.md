@@ -53,8 +53,17 @@ X_test <- matrix(rnorm(10 * p), 10, p)
 pred <- predict_distributed_forest(df_par, X_test)
 
 # Access predictions
-print(pred$mean_predictions)      # Mean predictions
-print(pred$alpha_predictions)     # Dirichlet parameters
+print(pred$mean_predictions)      # Mean-based predictions
+print(pred$alpha_predictions)     # Estimated Dirichlet parameters
+
+# Access fitted values
+print(df_par$fitted$alpha_hat)      # Estimated parameters (α̂)
+print(df_par$fitted$mean_based)     # Fitted values from sample means
+print(df_par$fitted$param_based)    # Fitted values from normalized parameters
+
+# Access residuals
+print(df_par$residuals$mean_based)   # Residuals for mean-based predictions
+print(df_par$residuals$param_based)  # Residuals for parameter-based predictions
 
 # Clean up cluster resources (important for Windows)
 cleanup_distributed_forest(df_par)
@@ -71,7 +80,7 @@ cleanup_distributed_forest(df_par)
 
 ### **Two Prediction Modes**
 
-#### default: `store_samples = FALSE`
+#### Default: `store_samples = FALSE`
 Pre-computes predictions at training time for faster inference:
 ```r
 df_fast <- DirichletForest_distributed(X, Y, B = 100, store_samples = FALSE)
@@ -94,6 +103,24 @@ print(weights$Y_values)        # Compositional values of weighted samples
 Choose between Method of Moments (`method = "mom"`, default) or Maximum Likelihood Estimation (`method = "mle"`):
 ```r
 df_mle <- DirichletForest_distributed(X, Y, method = "mle")
+```
+
+### **Multiple Fitted Values and Residuals**
+The model provides three types of fitted values:
+- **`alpha_hat`**: Estimated Dirichlet concentration parameters (α̂)
+- **`mean_based`**: Predictions computed from sample means in terminal nodes
+- **`param_based`**: Predictions computed from normalized estimated parameters
+```r
+# Access different types of fitted values
+alpha_estimates <- df_par$fitted$alpha_hat      # Parameter estimates
+mean_fitted <- df_par$fitted$mean_based         # Mean-based fitted values
+param_fitted <- df_par$fitted$param_based       # Parameter-based fitted values
+
+# Compare residual performance
+rmse_mean <- sqrt(mean(df_par$residuals$mean_based^2))
+rmse_param <- sqrt(mean(df_par$residuals$param_based^2))
+print(paste("RMSE (mean-based):", round(rmse_mean, 4)))
+print(paste("RMSE (param-based):", round(rmse_param, 4)))
 ```
 
 ---
@@ -140,6 +167,10 @@ Main function to build a distributed forest.
 - `store_samples`: Enable weight-based predictions (default: FALSE)
 - `n_cores`: Number of cores, -1 for auto-detect (default: -1)
 
+**Returns:** A list containing:
+- `fitted`: List with `alpha_hat` (parameter estimates), `mean_based` (mean-based fitted values), `param_based` (parameter-based fitted values)
+- `residuals`: List with `mean_based` and `param_based` residuals
+
 ### `predict_distributed_forest()`
 Make predictions with a trained forest.
 
@@ -148,7 +179,7 @@ Make predictions with a trained forest.
 - `X_new`: New predictor matrix
 - `method`: Parameter estimation method (default: "mom")
 
-**Returns:** List with `alpha_predictions` and `mean_predictions`
+**Returns:** List with `alpha_predictions` (estimated Dirichlet parameters) and `mean_predictions` (mean-based predictions)
 
 ### `get_sample_weights_distributed()`
 Get sample weights for a test observation (requires `store_samples = TRUE`).
@@ -169,7 +200,7 @@ Clean up cluster resources (essential on Windows).
 1. **Windows users**: Always call `cleanup_distributed_forest()` when done to properly close worker processes
 2. **Small forests**: For B < 10 trees, sequential processing is automatically used
 3. **Memory**: Weight-based mode (`store_samples = TRUE`) uses more memory but enables deeper analysis
-4. **Performance**: Fast mode is recommended for production inference; weight-based for model interpretation
+4. **Fitted values**: Use `mean_based` for direct predictions and `param_based` for parameter-driven predictions. Compare their residuals to assess performance
 
 ---
 
