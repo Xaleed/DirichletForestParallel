@@ -1238,7 +1238,12 @@ NumericVector calculate_mean_prediction(const NumericMatrix& Y,
 
 
 // ============================================================================
-// FIT TERMINAL NODE - DUAL MODE
+// FORWARD DECLARATIONS
+// ============================================================================
+List predict_sample_tree_fast(Node* node, const NumericVector& x);
+
+// ============================================================================
+// FIT TERMINAL NODE - DUAL MODE (MODIFIED)
 // ============================================================================
 void FitTerminalNode(Node* node, const NumericMatrix& Y,
                      const IntegerVector& sample_indices,
@@ -1247,44 +1252,43 @@ void FitTerminalNode(Node* node, const NumericMatrix& Y,
     
     node->is_leaf = true;
     
+    // ALWAYS compute mean and alpha predictions (for both modes)
+    if (sample_indices.size() == 0) {
+        int k = Y.ncol();
+        node->alpha_prediction = NumericVector(k, 1.0);
+        node->mean_prediction = NumericVector(k, 1.0/k);
+    } else {
+        // Calculate mean
+        node->mean_prediction = NumericVector(Y.ncol());
+        for (int j = 0; j < Y.ncol(); j++) {
+            double sum = 0.0;
+            for (int i = 0; i < sample_indices.size(); i++) {
+                sum += Y(sample_indices[i], j);
+            }
+            node->mean_prediction[j] = sum / sample_indices.size();
+        }
+        
+        // Estimate alpha parameters
+        NumericMatrix Y_subset(sample_indices.size(), Y.ncol());
+        for (int i = 0; i < sample_indices.size(); i++) {
+            for (int j = 0; j < Y.ncol(); j++) {
+                Y_subset(i, j) = Y(sample_indices[i], j);
+            }
+        }
+        
+        if (method == "mle") {
+            node->alpha_prediction = estimate_parameters_mle_newton_rcpp(Y_subset);
+        } else {
+            node->alpha_prediction = estimate_parameters_mom_rcpp(Y_subset);
+        }
+    }
+    
+    // Additionally store sample indices if requested
     if (store_samples) {
-        // MODE 1: Store only indices (for distributional predictions)
         node->leaf_samples.clear();
         node->leaf_samples.reserve(sample_indices.size());
         for (int i = 0; i < sample_indices.size(); i++) {
             node->leaf_samples.push_back(sample_indices[i]);
-        }
-        
-    } else {
-        // MODE 2: Pre-compute mean + alpha (for fast predictions)
-        if (sample_indices.size() == 0) {
-            int k = Y.ncol();
-            node->alpha_prediction = NumericVector(k, 1.0);
-            node->mean_prediction = NumericVector(k, 1.0/k);
-        } else {
-            // Calculate mean
-            node->mean_prediction = NumericVector(Y.ncol());
-            for (int j = 0; j < Y.ncol(); j++) {
-                double sum = 0.0;
-                for (int i = 0; i < sample_indices.size(); i++) {
-                    sum += Y(sample_indices[i], j);
-                }
-                node->mean_prediction[j] = sum / sample_indices.size();
-            }
-            
-            // Estimate alpha parameters
-            NumericMatrix Y_subset(sample_indices.size(), Y.ncol());
-            for (int i = 0; i < sample_indices.size(); i++) {
-                for (int j = 0; j < Y.ncol(); j++) {
-                    Y_subset(i, j) = Y(sample_indices[i], j);
-                }
-            }
-            
-            if (method == "mle") {
-                node->alpha_prediction = estimate_parameters_mle_newton_rcpp(Y_subset);
-            } else {
-                node->alpha_prediction = estimate_parameters_mom_rcpp(Y_subset);
-            }
         }
     }
 }
@@ -1622,6 +1626,7 @@ Node* FindLeafNode(Node* node, const NumericVector& x) {
     }
 }
 
+
 // ============================================================================
 // FAST PREDICTION (for store_samples = FALSE)
 // ============================================================================
@@ -1826,52 +1831,62 @@ List PredictDirichletForestWeightBased(List forest_model, NumericMatrix X_new,
 }
 
 // ============================================================================
-// UNIFIED PREDICTION FUNCTION
+// GET LEAF PREDICTIONS ( store_samples = TRUE)
 // ============================================================================
 // [[Rcpp::export]]
-List PredictDirichletForest(List forest_model, NumericMatrix X_new, 
-                            std::string method = "mom") {
+List GetLeafPredictions(List forest_model, NumericMatrix X_new) {
     
     List forest_ptrs = forest_model["forest"];
     int n_trees = forest_model["n_trees"];
     int n_classes = forest_model["n_classes"];
     int n_samples = X_new.nrow();
-    bool store_samples = as<bool>(forest_model["store_samples"]);
     
-    if (!store_samples) {
-        // FAST MODE: Use pre-computed predictions
-        NumericMatrix alpha_predictions(n_samples, n_classes);
-        NumericMatrix mean_predictions(n_samples, n_classes);
+    NumericMatrix alpha_predictions(n_samples, n_classes);
+    NumericMatrix mean_predictions(n_samples, n_classes);
+    
+    for (int i = 0; i < n_samples; i++) {
+        NumericVector sample = X_new(i, _);
         
-        for (int i = 0; i < n_samples; i++) {
-            NumericVector sample = X_new(i, _);
+        NumericVector alpha_sum(n_classes, 0.0);
+        NumericVector mean_sum(n_classes, 0.0);
+        
+        for (int t = 0; t < n_trees; t++) {
+            XPtr<Node> tree_ptr(as<SEXP>(forest_ptrs[t]));
+            List tree_pred = predict_sample_tree_fast(tree_ptr, sample);
             
-            NumericVector alpha_sum(n_classes, 0.0);
-            NumericVector mean_sum(n_classes, 0.0);
-            
-            for (int t = 0; t < n_trees; t++) {
-                XPtr<Node> tree_ptr(as<SEXP>(forest_ptrs[t]));
-                List tree_pred = predict_sample_tree_fast(tree_ptr, sample);
-                
-                NumericVector alpha_pred = tree_pred["alpha_prediction"];
-                NumericVector mean_pred = tree_pred["mean_prediction"];
-                
-                for (int j = 0; j < n_classes; j++) {
-                    alpha_sum[j] += alpha_pred[j];
-                    mean_sum[j] += mean_pred[j];
-                }
-            }
+            NumericVector alpha_pred = tree_pred["alpha_prediction"];
+            NumericVector mean_pred = tree_pred["mean_prediction"];
             
             for (int j = 0; j < n_classes; j++) {
-                alpha_predictions(i, j) = alpha_sum[j] / n_trees;
-                mean_predictions(i, j) = mean_sum[j] / n_trees;
+                alpha_sum[j] += alpha_pred[j];
+                mean_sum[j] += mean_pred[j];
             }
         }
         
-        return List::create(
-            Named("alpha_predictions") = alpha_predictions,
-            Named("mean_predictions") = mean_predictions
-        );
+        for (int j = 0; j < n_classes; j++) {
+            alpha_predictions(i, j) = alpha_sum[j] / n_trees;
+            mean_predictions(i, j) = mean_sum[j] / n_trees;
+        }
+    }
+    
+    return List::create(
+        Named("alpha_predictions") = alpha_predictions,
+        Named("mean_predictions") = mean_predictions
+    );
+}
+// ============================================================================
+// UNIFIED PREDICTION FUNCTION (MODIFIED)
+// ============================================================================
+// [[Rcpp::export]]
+List PredictDirichletForest(List forest_model, NumericMatrix X_new, 
+                            std::string method = "mom",
+                            bool use_leaf_predictions = true) {
+    
+    bool store_samples = as<bool>(forest_model["store_samples"]);
+    
+    if (!store_samples || use_leaf_predictions) {
+        // FAST MODE: Use pre-computed leaf predictions
+        return GetLeafPredictions(forest_model, X_new);
         
     } else {
         // DISTRIBUTIONAL MODE: Use weight-based approach
