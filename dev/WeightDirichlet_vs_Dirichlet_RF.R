@@ -1,7 +1,16 @@
 
 library(Rcpp)
 library(microbenchmark)
-#remove.packages("DirichletForestParallel")
+
+remove.packages("DirichletForestParallel")
+
+setwd("C:/Users/29827094/Documents/GitHub/DirichletForestParallel/")
+devtools::document()
+devtools::check()
+devtools::install()
+
+# Test everything works
+
 #devtools::install_github("https://github.com/Xaleed/DirichletForestParallel.git")
 library(DirichletForestParallel)
 
@@ -14,7 +23,7 @@ source("C:/Users/29827094/Documents/GitHub/DirichletForestParallel/R/parallel_ut
 # Users only see and use the public functions:
 
 # Setup
-n <- 100
+n <- 15
 X <- matrix(rnorm(n * 4), n, 4)
 Y <- MCMCpack::rdirichlet(n, c(2, 3, 4))
 X_test <- matrix(rnorm(10 * 4), 10, 4)
