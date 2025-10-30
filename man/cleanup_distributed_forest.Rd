@@ -12,3 +12,22 @@ cleanup_distributed_forest(distributed_forest)
 \description{
 Properly cleans up resources used by distributed forest.
 }
+\examples{
+\donttest{
+# Setup
+X <- matrix(rnorm(100 * 4), 100, 4)
+Y <- MCMCpack::rdirichlet(100, c(2, 3, 4))
+
+# Build forest
+df <- DirichletForest_distributed(X, Y, B = 50)
+
+# Use the forest...
+pred <- predict_distributed_forest(df, X)
+
+# Always clean up at the end, especially on Windows
+cleanup_distributed_forest(df)
+
+# After cleanup, cluster is no longer available
+# This would fail: predict_distributed_forest(df, X)
+}
+}

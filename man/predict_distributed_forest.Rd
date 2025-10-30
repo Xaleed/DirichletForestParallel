@@ -4,7 +4,12 @@
 \alias{predict_distributed_forest}
 \title{Predict with Distributed Dirichlet Forest}
 \usage{
-predict_distributed_forest(distributed_forest, X_new, method = "mom")
+predict_distributed_forest(
+  distributed_forest,
+  X_new,
+  method = "mom",
+  use_leaf_predictions = TRUE
+)
 }
 \arguments{
 \item{distributed_forest}{A distributed forest object}
@@ -12,6 +17,10 @@ predict_distributed_forest(distributed_forest, X_new, method = "mom")
 \item{X_new}{Numeric matrix of new predictors}
 
 \item{method}{Character, parameter estimation method: "mle" or "mom" (default: "mom")}
+
+\item{use_leaf_predictions}{Logical, if TRUE uses pre-computed leaf predictions
+even when store_samples = TRUE. If FALSE (default), uses weight-based
+predictions when store_samples = TRUE (default: TRUE)}
 }
 \value{
 A list with alpha_predictions and mean_predictions
@@ -19,4 +28,34 @@ A list with alpha_predictions and mean_predictions
 \description{
 Makes predictions using a distributed Dirichlet forest model.
 Automatically uses the appropriate prediction mode based on store_samples setting.
+}
+\examples{
+\donttest{
+# Setup
+n <- 500
+p <- 4
+X <- matrix(rnorm(n * p), n, p)
+Y <- MCMCpack::rdirichlet(n, c(2, 3, 4))
+
+# Fit model with store_samples = TRUE
+df <- DirichletForest_distributed(X, Y, B = 50, store_samples = TRUE)
+
+# Create test data
+X_test <- matrix(rnorm(10 * p), 10, p)
+
+# Option 1: Weight-based predictions (default when store_samples = TRUE)
+pred_weights <- predict_distributed_forest(df, X_test)
+
+# Option 2: Fast leaf predictions (uses pre-computed values)
+pred_fast <- predict_distributed_forest(df, X_test, use_leaf_predictions = TRUE)
+
+# Compare the two approaches
+print("Weight-based mean predictions:")
+print(head(pred_weights$mean_predictions))
+print("Fast leaf mean predictions:")
+print(head(pred_fast$mean_predictions))
+
+# Clean up
+cleanup_distributed_forest(df)
+}
 }

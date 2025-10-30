@@ -412,7 +412,7 @@ DirichletForest_distributed <- function(X, Y, B = 100, d_max = 10, n_min = 5,
 
     # Setup workers with Rcpp functions
 
-    setup_cluster_workers(cl)
+    setup_cluster_workers_installed(cl)
 
     
 

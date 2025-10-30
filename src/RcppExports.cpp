@@ -67,16 +67,29 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// GetLeafPredictions
+List GetLeafPredictions(List forest_model, NumericMatrix X_new);
+RcppExport SEXP _DirichletForestParallel_GetLeafPredictions(SEXP forest_modelSEXP, SEXP X_newSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< List >::type forest_model(forest_modelSEXP);
+    Rcpp::traits::input_parameter< NumericMatrix >::type X_new(X_newSEXP);
+    rcpp_result_gen = Rcpp::wrap(GetLeafPredictions(forest_model, X_new));
+    return rcpp_result_gen;
+END_RCPP
+}
 // PredictDirichletForest
-List PredictDirichletForest(List forest_model, NumericMatrix X_new, std::string method);
-RcppExport SEXP _DirichletForestParallel_PredictDirichletForest(SEXP forest_modelSEXP, SEXP X_newSEXP, SEXP methodSEXP) {
+List PredictDirichletForest(List forest_model, NumericMatrix X_new, std::string method, bool use_leaf_predictions);
+RcppExport SEXP _DirichletForestParallel_PredictDirichletForest(SEXP forest_modelSEXP, SEXP X_newSEXP, SEXP methodSEXP, SEXP use_leaf_predictionsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< List >::type forest_model(forest_modelSEXP);
     Rcpp::traits::input_parameter< NumericMatrix >::type X_new(X_newSEXP);
     Rcpp::traits::input_parameter< std::string >::type method(methodSEXP);
-    rcpp_result_gen = Rcpp::wrap(PredictDirichletForest(forest_model, X_new, method));
+    Rcpp::traits::input_parameter< bool >::type use_leaf_predictions(use_leaf_predictionsSEXP);
+    rcpp_result_gen = Rcpp::wrap(PredictDirichletForest(forest_model, X_new, method, use_leaf_predictions));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -108,7 +121,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_DirichletForestParallel_estimate_dirichlet_mle", (DL_FUNC) &_DirichletForestParallel_estimate_dirichlet_mle, 4},
     {"_DirichletForestParallel_DirichletForest", (DL_FUNC) &_DirichletForestParallel_DirichletForest, 9},
     {"_DirichletForestParallel_PredictDirichletForestWeightBased", (DL_FUNC) &_DirichletForestParallel_PredictDirichletForestWeightBased, 3},
-    {"_DirichletForestParallel_PredictDirichletForest", (DL_FUNC) &_DirichletForestParallel_PredictDirichletForest, 3},
+    {"_DirichletForestParallel_GetLeafPredictions", (DL_FUNC) &_DirichletForestParallel_GetLeafPredictions, 2},
+    {"_DirichletForestParallel_PredictDirichletForest", (DL_FUNC) &_DirichletForestParallel_PredictDirichletForest, 4},
     {"_DirichletForestParallel_GetSampleWeights", (DL_FUNC) &_DirichletForestParallel_GetSampleWeights, 2},
     {"_DirichletForestParallel_delete_dirichlet_forest_rcpp", (DL_FUNC) &_DirichletForestParallel_delete_dirichlet_forest_rcpp, 1},
     {NULL, NULL, 0}
