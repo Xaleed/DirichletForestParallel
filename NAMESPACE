@@ -2,8 +2,9 @@
 
 export(DirichletForest_distributed)
 export(cleanup_distributed_forest)
-export(get_sample_weights)
-export(get_sample_weights_distributed)
+export(get_leaf_predictions_distributed)
+export(get_weight_matrix)
+export(get_weight_matrix_distributed)
 export(predict_distributed_forest)
 importFrom(Rcpp,sourceCpp)
 useDynLib(DirichletForestParallel, .registration = TRUE)

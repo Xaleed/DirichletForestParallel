@@ -17,8 +17,12 @@ PredictDirichletForestWeightBased <- function(forest_model, X_new, method = "mom
     .Call(`_DirichletForestParallel_PredictDirichletForestWeightBased`, forest_model, X_new, method)
 }
 
-PredictDirichletForest <- function(forest_model, X_new, method = "mom") {
-    .Call(`_DirichletForestParallel_PredictDirichletForest`, forest_model, X_new, method)
+GetLeafPredictions <- function(forest_model, X_new) {
+    .Call(`_DirichletForestParallel_GetLeafPredictions`, forest_model, X_new)
+}
+
+PredictDirichletForest <- function(forest_model, X_new, method = "mom", use_leaf_predictions = TRUE) {
+    .Call(`_DirichletForestParallel_PredictDirichletForest`, forest_model, X_new, method, use_leaf_predictions)
 }
 
 GetSampleWeights <- function(forest_model, test_sample) {
