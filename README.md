@@ -190,7 +190,7 @@ Main function to build a distributed forest.
 - `method`: Parameter estimation, "mom" or "mle" (default: "mom")
 - `store_samples`: Enable weight-based predictions (default: FALSE)
 - `n_cores`: Number of cores, -1 for auto-detect (default: -1)
-- `use_leaf_predictions`: If TRUE, uses pre-computed leaf predictions for fitted values even when `store_samples = TRUE` (default: TRUE)
+- `use_leaf_predictions`:  If TRUE, uses pre-computed leaf predictions for fitted values even when store_samples = TRUE (each tree contributes its leaf prediction, then averaged). If FALSE, gathers all related training samples across all trees and estimates parameters from this pooled weighted set. This affects the fitted values and residuals returned by the function (default: TRUE)
 
 **Returns:** A list containing:
 - `fitted`: List with `alpha_hat` (parameter estimates), `mean_based` (mean-based fitted values), `param_based` (parameter-based fitted values)

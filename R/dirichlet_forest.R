@@ -35,11 +35,12 @@
 #' @param n_cores Integer, number of cores to use. If -1, uses all available cores minus 1.
 
 #'        If 1, uses sequential processing (default: -1)
-#' @param use_leaf_predictions Logical, if TRUE uses pre-computed leaf predictions 
+#' @param use_leaf_predictions Logical, If TRUE, uses pre-computed leaf predictions
 #'        for fitted values even when store_samples = TRUE. If FALSE, 
-#'        uses weight-based predictions when store_samples = TRUE. This affects 
-#'        the fitted values and residuals returned by the function (default: TRUE)
-
+#'        gathers all related training samples across all trees and estimates parameters
+#'        from this pooled set.
+#'        This affects the fitted values and residuals returned by the function (default: TRUE)
+    
 #'
 
 #' @return A list containing the distributed forest model with fitted values and residuals
