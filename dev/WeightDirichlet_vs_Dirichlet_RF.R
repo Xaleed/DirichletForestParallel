@@ -5,9 +5,15 @@ library(microbenchmark)
 remove.packages("DirichletForestParallel")
 
 setwd("C:/Users/29827094/Documents/GitHub/DirichletForestParallel/")
+
 devtools::document()
 devtools::check()
 devtools::install()
+#binary install for faster testing
+#creat binary code 
+# then install using below code
+#install.packages("C:/Users/29827094/Documents/GitHub/DirichletForestParallel_0.0.0.9000.zip",
+#                 repos = NULL, type = "win.binary")
 
 
 # Test everything works
