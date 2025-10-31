@@ -18,7 +18,7 @@ devtools::install_github("Xaleed/DirichletForestParallel")
 Download and install the latest binary release:
 ```r
 # Replace v0.1.0 with the latest release version
-install.packages("https://github.com/Xaleed/DirichletForestParallel/releases/download/v0.1.0/DirichletForestParallel_0.0.0.9000.zip", 
+install.packages("https://github.com/Xaleed/DirichletForestParallel/releases/download/v0.1.0/DirichletForestParallel_0.1.0.zip", 
                  repos = NULL, type = "win.binary")
 ```
 
@@ -239,24 +239,11 @@ Clean up cluster resources (essential on Windows).
 
 1. **Windows users**: Always call `cleanup_distributed_forest()` when done to properly close worker processes
 2. **Small forests**: For B < 10 trees, sequential processing is automatically used
-3. **Memory considerations**: 
-   - `store_samples = FALSE`: Most memory efficient, fastest predictions
-   - `store_samples = TRUE` with `use_leaf_predictions = TRUE`: Moderate memory, fast predictions, enables weight analysis
-   - `store_samples = TRUE` with `use_leaf_predictions = FALSE`: Higher memory usage, slower predictions but more flexible
+
 4. **Fitted values**: When `store_samples = TRUE`, fitted values are computed using pre-computed leaf predictions by default for efficiency. Set `use_leaf_predictions = FALSE` if you need weight-based fitted values
 5. **Weight matrices**: Use `get_weight_matrix_distributed()` to analyze which training samples influence predictions most
 
----
 
-## 🔍 Understanding Prediction Modes
-
-| Mode | `store_samples` | `use_leaf_predictions` | Speed | Memory | Use Case |
-|------|----------------|----------------------|-------|--------|----------|
-| **Fast** | FALSE | N/A | Fastest | Lowest | Standard predictions |
-| **Leaf-based** | TRUE | TRUE | Fast | Medium | Predictions + weight analysis |
-| **Weight-based** | TRUE | FALSE | Slower | Higher | Full distributional analysis |
-
----
 
 ## 📄 License
 
