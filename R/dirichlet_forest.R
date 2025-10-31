@@ -36,9 +36,9 @@
 
 #'        If 1, uses sequential processing (default: -1)
 #' @param use_leaf_predictions Logical, if TRUE uses pre-computed leaf predictions 
-#'        for fitted values even when store_samples = TRUE. If FALSE (default), 
+#'        for fitted values even when store_samples = TRUE. If FALSE, 
 #'        uses weight-based predictions when store_samples = TRUE. This affects 
-#'        the fitted values and residuals returned by the function (default: FALSE)
+#'        the fitted values and residuals returned by the function (default: TRUE)
 
 #'
 
