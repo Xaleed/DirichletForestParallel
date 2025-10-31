@@ -80,11 +80,11 @@ cleanup_distributed_forest(df_par)
 
 ### **Two Prediction Modes**
 
-#### Fast Mode: `store_samples = FALSE` (Default)
-Pre-computes predictions at training time for faster inference:
+####  `store_samples = FALSE` (Default)
+Pre-computes predictions at training time:
 ```r
-df_fast <- DirichletForest_distributed(X, Y, B = 100, store_samples = FALSE)
-pred_fast <- predict_distributed_forest(df_fast, X_test)
+df <- DirichletForest_distributed(X, Y, B = 100, store_samples = FALSE)
+pred <- predict_distributed_forest(df, X_test)
 ```
 
 #### Weight-Based Mode: `store_samples = TRUE`
@@ -92,8 +92,8 @@ Stores sample indices for distributional predictions and weight analysis:
 ```r
 df_weights <- DirichletForest_distributed(X, Y, B = 100, store_samples = TRUE)
 
-# Option 1: Use fast leaf predictions (default for fitted values)
-pred_fast <- predict_distributed_forest(df_weights, X_test, use_leaf_predictions = TRUE)
+# Option 1: Use leaf predictions (default for fitted values)
+pred <- predict_distributed_forest(df_weights, X_test, use_leaf_predictions = TRUE)
 
 # Option 2: Use weight-based predictions for deeper analysis
 pred_weights <- predict_distributed_forest(df_weights, X_test, use_leaf_predictions = FALSE)
@@ -205,7 +205,7 @@ Make predictions with a trained forest.
 - `distributed_forest`: Trained forest object
 - `X_new`: New predictor matrix (or vector for single sample)
 - `method`: Parameter estimation method (default: "mom")
-- `use_leaf_predictions`: If TRUE, uses pre-computed leaf predictions (faster). If FALSE, uses weight-based predictions (default: TRUE)
+- `use_leaf_predictions`: If TRUE, uses pre-computed leaf predictions. If FALSE, uses weight-based predictions (default: TRUE)
 
 **Returns:** List with `alpha_predictions` (estimated Dirichlet parameters) and `mean_predictions` (mean-based predictions)
 

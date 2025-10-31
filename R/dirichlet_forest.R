@@ -30,7 +30,7 @@
 
 #' @param store_samples Logical, if TRUE stores sample indices for weight-based predictions,
 
-#'        if FALSE pre-computes predictions for faster inference (default: FALSE)
+#'        if FALSE pre-computes predictions (default: FALSE)
 
 #' @param n_cores Integer, number of cores to use. If -1, uses all available cores minus 1.
 
@@ -66,8 +66,8 @@
 #' # Example 1: Basic distributed forest with parallel processing
 #' df_par <- DirichletForest_distributed(X, Y, B = 50, n_cores = 3)
 #' 
-#' # Example 2: Fast mode (pre-computed predictions, no sample storage)
-#' df_fast <- DirichletForest_distributed(X, Y, B = 100, store_samples = FALSE)
+#' # Example 2: pre-computed predictions, no sample storage
+#' df <- DirichletForest_distributed(X, Y, B = 100, store_samples = FALSE)
 #' 
 #' # Example 3: Weight-based mode (stores samples for distributional analysis)
 #' df_weights <- DirichletForest_distributed(X, Y, B = 100, store_samples = TRUE)
@@ -161,7 +161,7 @@
 #' 
 #' # Always clean up at the end, especially important on Windows
 #' cleanup_distributed_forest(df_par)
-#' cleanup_distributed_forest(df_fast)
+#' cleanup_distributed_forest(df)
 #' cleanup_distributed_forest(df_weights)
 #' cleanup_distributed_forest(df_mle)
 #' cleanup_distributed_forest(df_seq)
@@ -652,14 +652,14 @@ cleanup_distributed_forest <- function(distributed_forest) {
 #' # Option 1: Weight-based predictions (default when store_samples = TRUE)
 #' pred_weights <- predict_distributed_forest(df, X_test)
 #' 
-#' # Option 2: Fast leaf predictions (uses pre-computed values)
-#' pred_fast <- predict_distributed_forest(df, X_test, use_leaf_predictions = TRUE)
+#' # Option 2: uses pre-computed values
+#' pred <- predict_distributed_forest(df, X_test, use_leaf_predictions = TRUE)
 #' 
 #' # Compare the two approaches
 #' print("Weight-based mean predictions:")
 #' print(head(pred_weights$mean_predictions))
-#' print("Fast leaf mean predictions:")
-#' print(head(pred_fast$mean_predictions))
+#' print("leaf mean predictions:")
+#' print(head(pred$mean_predictions))
 #' 
 #' # Clean up
 #' cleanup_distributed_forest(df)
@@ -690,9 +690,9 @@ predict_distributed_forest <- function(distributed_forest, X_new, method = "mom"
   
   # Determine prediction mode
   if (!store_samples) {
-    pred_mode <- "Fast (pre-computed)"
+    pred_mode <- " (pre-computed)"
   } else if (use_leaf_predictions) {
-    pred_mode <- "Fast (pre-computed leaf values)"
+    pred_mode <- " (pre-computed leaf values)"
   } else {
     pred_mode <- "Weight-based (distributional)"
   }
