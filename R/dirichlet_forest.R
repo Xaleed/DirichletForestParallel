@@ -411,8 +411,10 @@ DirichletForest_distributed <- function(X, Y, B = 100, d_max = 10, n_min = 5,
     
 
     # Setup workers with Rcpp functions
-
+    # for package:
     setup_cluster_workers_installed(cl)
+    # for test:
+    #setup_cluster_workers(cl)
 
     
 
@@ -508,6 +510,71 @@ DirichletForest_distributed <- function(X, Y, B = 100, d_max = 10, n_min = 5,
 }
 
 
+#' Custom Print Method for dirichlet_forest objects
+#'
+#' Suppresses the display of large data matrices (Y_train, fitted, residuals)
+#' when the object is printed, while keeping them accessible via $.
+#'
+#' @param x A dirichlet_forest object
+#' @param ... Further arguments passed to or from other methods
+#' @export
+print.dirichlet_forest <- function(x, ...) {
+  
+  cat("============================================\n")
+  cat(" Dirichlet Forest Model (Distributed)\n")
+  cat("============================================\n")
+  
+  # 1. Print Model Metadata
+  cat(" Type:", x$type, "\n")
+  cat(" Total Trees:", x$total_trees, "\n")
+  cat(" Cores Used:", x$n_cores, "\n")
+  cat(" Store Samples Mode:", x$store_samples, "\n")
+  
+  # 2. Print Specific Worker Details
+  if (length(x$trees_per_worker) > 1 && x$n_cores > 1) {
+    cat(" Trees per Worker:", paste(x$trees_per_worker, collapse = ", "), "\n")
+  }
+
+  # 3. Print Cluster/Worker Status
+  if (x$type == "cluster" && !is.null(x$cluster)) {
+    cat(" Cluster Status: Active (", length(x$cluster), " workers)\n", sep="")
+  } else if (x$type == "fork") {
+    cat(" Worker Status: Forked (", x$n_cores, " workers)\n", sep="")
+  } else if (x$type == "sequential") {
+    cat(" Worker Status: Sequential\n")
+  }
+  
+  # 4. Print Data Dimensions
+  N <- NULL
+  K <- NULL
+  if (!is.null(x$Y_train)) {
+    N <- nrow(x$Y_train)
+    K <- ncol(x$Y_train)
+  } else if (x$type == "sequential" && !is.null(x$forest$Y_train)) {
+    N <- nrow(x$forest$Y_train)
+    K <- ncol(x$forest$Y_train)
+  }
+  
+  if (!is.null(N) && !is.null(K)) {
+    cat(paste0(" Training Data Size: ", N, " observations (n) x ", K, " components (k)\n"))
+  }
+
+
+  cat("--------------------------------------------\n")
+  cat(" Note: Large data structures (fitted values, residuals) are suppressed.\n")
+  cat("\n Access data via the following components:\n")
+  cat(" - Training Data (Y):                   $Y_train\n")
+  cat(" - Fitted Values:\n")
+  cat("   - Estimated Alpha Parameters:        $fitted$alpha_hat\n")
+  cat("   - Mean-based Predictions:            $fitted$mean_based\n")
+  cat("   - Parameter-based Predictions:       $fitted$param_based\n")
+  cat(" - Residuals:\n")
+  cat("   - Mean-based Residuals:              $residuals$mean_based\n")
+  cat("   - Parameter-based Residuals:         $residuals$param_based\n")
+  cat("============================================\n")
+
+  invisible(x)
+}
 
 #' Clean Up Distributed Forest
 

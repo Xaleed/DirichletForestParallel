@@ -9,6 +9,7 @@ devtools::document()
 devtools::check()
 devtools::install()
 
+
 # Test everything works
 
 #devtools::install_github("https://github.com/Xaleed/DirichletForestParallel.git")
@@ -30,6 +31,7 @@ X_test <- matrix(rnorm(10 * 4), 10, 4)
 
 # Build forest
 df <- DirichletForest_distributed(X, Y, B = 100, store_samples = TRUE, n_cores = 3)
+df$residuals
 
 # Get weights - works for single or multiple test samples
 weights <- get_weight_matrix_distributed(df, X_test)
