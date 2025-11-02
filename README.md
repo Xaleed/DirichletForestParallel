@@ -1,6 +1,6 @@
 # DirichletForest_distributed  
 
-This repository contains an implementation of a **parallel Dirichlet Random Forest**, designed for modeling **compositional (Dirichlet-distributed) data**.  
+This repository contains an implementation of a **parallel Dirichlet Random Forest**, designed for modeling **compositional data**.  
 
 ⚠️ **Note**: This project is still in progress. For a simpler and more stable version, see my [DirichletRandom](https://github.com/Xaleed/DirichletForest.git) repository.  
 
