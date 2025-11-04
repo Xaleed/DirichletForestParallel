@@ -2,7 +2,7 @@
 
 This repository contains an implementation of a **parallel Dirichlet Random Forest**, designed for modeling **compositional data**.  
 
-⚠️ **Note**: This project is still in progress. For a simpler and more stable version, see my [DirichletRandom](https://github.com/Xaleed/DirichletForest.git) repository.  
+⚠️ **Note**: This project is still in progress. For a simpler and more stable version, see my [DirichletRandom](https://github.com/Xaleed/DirichletRF.git) repository.  
 
 ---
 
@@ -10,7 +10,7 @@ This repository contains an implementation of a **parallel Dirichlet Random Fore
 
 ### Option 1: Clone this repository and install locally in R:  
 ```r
-devtools::install_github("Xaleed/DirichletForestParallel")
+devtools::install_github("Xaleed/DirichletRF")
 ```
 
 ### Option 2: Install pre-built binary (no Rtools required - Windows only)
@@ -23,7 +23,7 @@ install.packages("https://github.com/Xaleed/DirichletForestParallel/releases/dow
 ```
 
 Or manually:
-1. Go to [Releases](https://github.com/Xaleed/DirichletForestParallel/releases)
+1. Go to [Releases](https://github.com/Xaleed/DirichletRF/releases)
 2. Download the `.zip` file from the latest release
 3. In R: `install.packages("path/to/downloaded/file.zip", repos = NULL, type = "win.binary")`
 
@@ -31,7 +31,7 @@ Or manually:
 
 ## 🚀 Quick Start
 ```r
-library(DirichletForestParallel)
+library(DirichletRF)
 
 # Generate predictors
 n <- 500
