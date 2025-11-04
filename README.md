@@ -1,4 +1,8 @@
-# DirichletForest_distributed  
+# DirichletRF 
+<p align="center">
+  <img src="assets/DirichletRF.png" alt="DirichletRF Logo" width="200"/>
+</p>
+
 
 This repository contains an implementation of a **parallel Dirichlet Random Forest**, designed for modeling **compositional data**.  
 
