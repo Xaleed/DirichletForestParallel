@@ -1,3 +1,8 @@
-^DirichletForestParallel\.Rproj$
+
+^.*\.Rproj$
 ^\.Rproj\.user$
+^\.vscode$
+^assets$
 ^dev$
+^\.Rhistory$
+^README\.md$
