@@ -2,7 +2,7 @@
 library(Rcpp)
 library(microbenchmark)
 
-remove.packages("DirichletForestParallel")
+#remove.packages("DirichletForestParallel")
 
 setwd("C:/Users/29827094/Documents/GitHub/DirichletForestParallel/")
 
