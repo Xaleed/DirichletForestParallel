@@ -1,6 +1,6 @@
 # DirichletRF 
 <p align="center">
-  <img src="assets/DirichletRF.png" alt="DirichletRF Logo" width="200"/>
+  <img src="assets/DirichletRF.jpg" alt="DirichletRF Logo" width="200"/>
 </p>
 
 
