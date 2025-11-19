@@ -15,7 +15,7 @@ struct Node {
     bool is_leaf;
     Node* left;
     Node* right;
-    // For store_samples = FALSE (fast mode)
+    // For store_samples = FALSE 
     NumericVector mean_prediction;
     NumericVector alpha_prediction;
     // For store_samples = TRUE (distributional mode)
